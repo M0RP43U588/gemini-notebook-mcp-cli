@@ -24,8 +24,6 @@ from pathlib import Path
 import pexpect
 import pyte
 
-from notebooklm_tools import __version__
-
 VENV_BIN = Path(sys.executable).parent
 NLM = VENV_BIN / "nlm"
 SERVER_BIN = str(VENV_BIN / "notebooklm-mcp")
@@ -102,10 +100,6 @@ class Sandbox:
         self._write_shim("ps", _PS_SHIM)
         self._write_shim("pbcopy", _PBCOPY_SHIM)
         self._write_shim("open", _LOG_SHIM.replace("{name}", "open"))  # no real Finder
-        # Pre-seed the version-check cache so the wizard never hits the network.
-        cache = self.home / ".notebooklm-mcp-cli" / "cache" / "update_check.json"
-        cache.parent.mkdir(parents=True, exist_ok=True)
-        cache.write_text(json.dumps({"latest_version": __version__, "checked_at": time.time()}))
         self.extra_env: dict[str, str] = {}
 
     def _write_shim(self, name: str, body: str) -> None:

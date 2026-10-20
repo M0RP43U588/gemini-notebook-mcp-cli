@@ -1,77 +1,10 @@
-"""Server tools - Server info and version checking."""
+"""Server tools - Server info."""
 
-import json
-import threading
-import time
-import urllib.request
-from typing import Any, cast
+from typing import Any
 
 from notebooklm_tools import __version__
-from notebooklm_tools.utils.versioning import is_newer_version
 
 from ._utils import logged_tool
-
-_VERSION_CACHE_TTL_SECONDS = 86400
-_VERSION_FAILURE_CACHE_TTL_SECONDS = 300
-_version_cache_lock = threading.Lock()
-_version_cache: tuple[float, str | None] | None = None
-
-
-def _fetch_latest_pypi_version() -> str | None:
-    """Fetch the latest version from PyPI.
-
-    Returns:
-        Latest version string or None if fetch fails.
-    """
-    try:
-        url = "https://pypi.org/pypi/notebooklm-mcp-cli/json"
-        req = urllib.request.Request(url, headers={"User-Agent": "notebooklm-mcp-cli"})
-        with urllib.request.urlopen(req, timeout=2) as response:
-            data = cast(dict[str, Any], json.loads(response.read().decode()))
-            info = data.get("info")
-            if isinstance(info, dict):
-                version = info.get("version")
-                if isinstance(version, str):
-                    return version
-    except Exception:
-        return None
-    return None
-
-
-def _get_latest_pypi_version() -> str | None:
-    """Return the latest PyPI version with bounded process-local caching.
-
-    Successful lookups are reused for 24 hours. Failed lookups are cached for
-    five minutes so an offline long-lived MCP server does not pay the two-second
-    network timeout on every server_info() call.
-    """
-    global _version_cache
-
-    def _cached_value(now: float) -> tuple[bool, str | None]:
-        cached = _version_cache
-        if cached is None:
-            return False, None
-        checked_at, latest = cached
-        ttl = (
-            _VERSION_CACHE_TTL_SECONDS if latest is not None else _VERSION_FAILURE_CACHE_TTL_SECONDS
-        )
-        if now - checked_at < ttl:
-            return True, latest
-        return False, None
-
-    now = time.monotonic()
-    fresh, latest = _cached_value(now)
-    if fresh:
-        return latest
-
-    with _version_cache_lock:
-        now = time.monotonic()
-        fresh, latest = _cached_value(now)
-        if fresh:
-            return latest
-        latest = _fetch_latest_pypi_version()
-        _version_cache = (now, latest)
-        return latest
 
 
 def _check_auth_status() -> str:
@@ -185,9 +118,6 @@ def _profile_summary() -> dict[str, Any]:
 def server_info() -> dict[str, Any]:
     """Get version, auth status, and conservative MCP capability visibility.
 
-    AI assistants: If update_available is True, inform the user that a new
-    version is available and suggest updating with the provided command.
-
     auth_status is the result of an AuthHealthChecker probe. The checker
     runs a multi-probe strategy (homepage fetch + API fallback) with
     30-second TTL caching and mtime-based bypass on auth-file changes.
@@ -212,32 +142,19 @@ def server_info() -> dict[str, Any]:
     Returns:
         dict with version info:
         - version: Current installed version
-        - latest_version: Latest version on PyPI (or None if check failed)
-        - update_available: True if a newer version is available
         - auth_status: configured | stale | unverified | not_configured | error
         - storage_warning: Short warning if conflict/pending op exists (or None)
-        - update_command: Command to run to update
         - mcp_capabilities: Built-in tool groups visible in this server process
         - provider_capabilities: Explicitly unprobed provider/account capabilities
     - active_profile: Which saved account is in use and why (session switch or saved default)
     - profiles: Saved accounts with email, storage mode (plain/protected) and any storage
       problems. Metadata only; never opens the OS keystore.
     """
-    latest = _get_latest_pypi_version()
-    update_available = False
-
-    if latest:
-        update_available = is_newer_version(__version__, latest)
-
     info: dict[str, Any] = {
         "status": "success",
         "version": __version__,
-        "latest_version": latest,
-        "update_available": update_available,
         "auth_status": _check_auth_status(),
         "storage_warning": _check_storage_warning(),
-        "update_command": "uv tool upgrade notebooklm-mcp-cli",
-        "pip_update_command": "pip install --upgrade notebooklm-mcp-cli",
         "mcp_capabilities": _runtime_capabilities(),
         "provider_capabilities": {
             "status": "not_probed",

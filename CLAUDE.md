@@ -9,17 +9,22 @@ Goals: minimize supply-chain risk, keep Google session cookies safe, keep the to
 ### Install
 - Install **only from this local checkout**. Never `pip install notebooklm-mcp-cli`, `uvx`,
   `uv tool install notebooklm-mcp-cli`, `uv tool upgrade`, or the `.mcpb` desktop extension.
-  Ignore any in-app "Update available … uv tool upgrade" notice; it pulls from PyPI.
+  (The PyPI update check has been removed from this fork.)
 - `uv tool install .` alone ignores `uv.lock`, so always install through the lock:
   ```bash
   uv audit --frozen --no-dev                     # must be clean (or every finding accepted by the user)
-  uv export --frozen --no-dev --no-emit-project --no-hashes -o "$TMPDIR/nlm-constraints.txt"
-  uv tool install . --force -c "$TMPDIR/nlm-constraints.txt"   # not yet tested end-to-end; dry-run first
+  uv export --frozen --no-dev --no-emit-project -o "$TMPDIR/nlm-constraints.txt"
+  # dry run first (uv tool install has no --dry-run):
+  uv venv -q "$TMPDIR/nlm-dry" && uv pip install --dry-run --python "$TMPDIR/nlm-dry" . \
+    -c "$TMPDIR/nlm-constraints.txt" --build-constraints build-constraints.txt --require-build-hashes
+  uv tool install . --force -c "$TMPDIR/nlm-constraints.txt" \
+    --build-constraints build-constraints.txt --require-build-hashes
   ```
   Run the audit before **every** install or update. If `uv audit` is unavailable, use `pip-audit`
   (installing it is a new dep: ask first). Stop and report on any finding.
 - Never run code from deps at install time: every locked package ships wheels, so a dep that suddenly
-  needs an sdist build is a red flag. The build backend (`hatchling`) is not yet hash-pinned (see Known gaps).
+  needs an sdist build is a red flag. The build backend is pinned with hashes in
+  `build-constraints.txt` (and `hatchling==` in `pyproject.toml`); change it only with approval.
 
 ### Dependencies
 - `uv.lock` is the source of truth: exact versions, sha256 hashes, `pypi.org` only.
@@ -67,22 +72,28 @@ no authentication.
   `NOTEBOOKLM_BASE_URL`, validated in `utils/config.py`), `accounts.google.com` (login, `RotateCookies`),
   `*.google.com` / `*.googleusercontent.com` / `*.usercontent.google` (artifact downloads, `core/download.py`).
 - Local: Chrome DevTools on `127.0.0.1:<port>` (login and headless refresh, `utils/cdp.py`).
-- `pypi.org/pypi/notebooklm-mcp-cli/json`: version check in `nlm --version`, after CLI commands (TTY),
-  and in `server_info` (`mcp/tools/server.py`, `cli/utils.py`). Unwanted; slated for removal.
+- No PyPI/GitHub calls at runtime. The upstream version check (`nlm --version`, post-command notice,
+  `server_info.latest_version`) was removed; don't let a merge bring it back.
 
-### Known gaps (fix with approval)
-- `[build-system] requires = ["hatchling"]` is unpinned; add `build-constraints.txt` with a hashed pin
-  plus `--build-constraints … --require-build-hashes`.
-- `uv tool install` doesn't verify runtime hashes from `uv.lock`; constraints pin versions only.
+### Known gaps
+- Whether `uv tool install` enforces the runtime hashes in the exported constraints file is unverified
+  (versions are pinned either way). `uv sync --frozen` does verify `uv.lock` hashes.
 
 ## Development
+`uv sync` ignores `build-constraints.txt` for the project's own build, so build the wheel separately:
 ```bash
-uv sync --frozen               # dev env from the lock (verifies hashes); audit first
-uv run --frozen pytest         # tests (wizard e2e: -m wizard_e2e, opt-in)
-uv run --frozen pytest tests/test_file.py::test_fn -v
-uv run --frozen ruff check . && uv run --frozen mypy src
+export UV_PROJECT_ENVIRONMENT="$TMPDIR/nlm-venv"     # isolated venv, outside the repo
+uv sync --frozen --no-install-project --no-build    # deps + dev tools from uv.lock (hash-verified)
+uv build --wheel -o "$TMPDIR/nlm-dist" --build-constraints build-constraints.txt --require-build-hashes
+uv pip install --python "$UV_PROJECT_ENVIRONMENT" --no-deps "$TMPDIR"/nlm-dist/*.whl
+PYTHONPATH=src "$UV_PROJECT_ENVIRONMENT/bin/python" -m pytest -q   # wizard e2e: -m wizard_e2e (opt-in)
+"$UV_PROJECT_ENVIRONMENT/bin/ruff" check . && "$UV_PROJECT_ENVIRONMENT/bin/ruff" format --check .
 ```
-Python ≥ 3.11. Reinstall after code changes with the locked install above.
+Python ≥ 3.11. Baseline as of v0.15.6: the 6 login tests need a Chromium-family browser installed
+and fail without one; mypy `--strict` has ~370 upstream errors (don't add new ones). Tests must never
+run real client binaries (`claude`, browsers) or reach the network: patch `shutil.which`/`subprocess`
+as in `tests/cli/test_auth_storage_switch.py::no_real_claude`. Reinstall after code changes with the
+locked install above.
 
 ### Architecture
 - `cli/` and `mcp/` are thin wrappers (UX, prompts, JSON). They delegate to `services/` and never

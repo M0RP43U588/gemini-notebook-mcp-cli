@@ -24,7 +24,6 @@ def setup_env(tmp_path, monkeypatch, fake_credential_store):
 
 def _info():
     with (
-        patch("notebooklm_tools.mcp.tools.server._get_latest_pypi_version", return_value=None),
         patch("notebooklm_tools.mcp.tools.server._check_auth_status", return_value="configured"),
     ):
         return server_info()

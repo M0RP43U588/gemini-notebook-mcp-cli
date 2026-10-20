@@ -1505,14 +1505,7 @@ def main(
         logging.getLogger("notebooklm_mcp.api").setLevel(logging.DEBUG)
 
     if version:
-        from notebooklm_tools.cli.utils import check_for_updates
-
         console.print(f"nlm version {__version__}")
-
-        # Check for updates when showing version
-        update_available, latest = check_for_updates()
-        if not (update_available and latest):
-            console.print("[dim]You are on the latest version.[/dim]")
         raise typer.Exit()
 
     if ai:
@@ -1595,13 +1588,6 @@ def cli_main() -> None:
         # For unexpected errors, show the traceback
         else:
             raise
-    finally:
-        try:
-            from notebooklm_tools.cli.utils import print_update_notification
-
-            print_update_notification()
-        except Exception:
-            pass
 
 
 if __name__ == "__main__":

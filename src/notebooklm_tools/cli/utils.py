@@ -1,19 +1,14 @@
-import json
 import os
 import shutil
 import sys
-import time
-import urllib.request
 from pathlib import Path
 
 import typer
 from rich.console import Console
 
-from notebooklm_tools import __version__
 from notebooklm_tools.core.client import NotebookLMClient
 from notebooklm_tools.services.auth import AuthManager
-from notebooklm_tools.utils.config import get_config, get_storage_dir
-from notebooklm_tools.utils.versioning import is_newer_version
+from notebooklm_tools.utils.config import get_config
 
 
 def make_console(**kwargs) -> "Console":
@@ -129,108 +124,6 @@ def extract_cookies_from_string(cookie_str: str) -> dict[str, str]:
             if key:
                 cookies[key] = value.strip()
     return cookies
-
-
-# ========== Version Check Utilities ==========
-
-
-def _get_cache_path() -> Path | None:
-    """Get path to version check cache file, or None if inaccessible."""
-    cache_dir = get_storage_dir() / "cache"
-    try:
-        cache_dir.mkdir(parents=True, exist_ok=True)
-    except (PermissionError, OSError):
-        return None
-    return cache_dir / "update_check.json"
-
-
-def _get_cached_version_info() -> dict | None:
-    """Load cached version info if still valid (within 24 hours)."""
-    cache_path = _get_cache_path()
-    if cache_path is None or not cache_path.exists():
-        return None
-
-    try:
-        with open(cache_path, encoding="utf-8") as f:
-            data = json.load(f)
-
-        # Check if cache is still valid (24 hours = 86400 seconds)
-        if time.time() - data.get("checked_at", 0) < 86400:
-            return data
-    except (json.JSONDecodeError, OSError):
-        pass
-
-    return None
-
-
-def _save_version_cache(latest_version: str) -> None:
-    """Save version info to cache."""
-    cache_path = _get_cache_path()
-    if cache_path is None:
-        return
-    try:
-        with open(cache_path, "w", encoding="utf-8") as f:
-            json.dump(
-                {
-                    "latest_version": latest_version,
-                    "checked_at": time.time(),
-                },
-                f,
-            )
-    except OSError:
-        pass  # Silently ignore cache write failures
-
-
-def _fetch_latest_version() -> str | None:
-    """Fetch latest version from PyPI with 2 second timeout."""
-    try:
-        url = "https://pypi.org/pypi/notebooklm-mcp-cli/json"
-        req = urllib.request.Request(url, headers={"User-Agent": "notebooklm-mcp-cli"})
-        with urllib.request.urlopen(req, timeout=2) as response:
-            data = json.loads(response.read().decode())
-            return data.get("info", {}).get("version")
-    except Exception:
-        return None
-
-
-def check_for_updates() -> tuple[bool, str | None]:
-    """Check if a new version is available.
-
-    Returns:
-        Tuple of (update_available, latest_version).
-        Uses cached result if available and fresh.
-    """
-    # Check cache first
-    cached = _get_cached_version_info()
-    if cached:
-        latest = cached.get("latest_version")
-        if latest:
-            return is_newer_version(__version__, latest), latest
-
-    # Fetch from PyPI
-    latest = _fetch_latest_version()
-    if latest:
-        _save_version_cache(latest)
-        return is_newer_version(__version__, latest), latest
-
-    return False, None
-
-
-def print_update_notification() -> None:
-    """Print update notification if available. Call after command execution."""
-    # Only show in TTY (not when piping output)
-    import sys
-
-    if not sys.stdout.isatty():
-        return
-
-    update_available, latest = check_for_updates()
-    if update_available and latest:
-        console.print()
-        console.print(
-            f"[dim]🔔 Update available:[/dim] [cyan]{__version__}[/cyan] → [green]{latest}[/green]. "
-            f"[dim]Run[/dim] [bold]uv tool upgrade notebooklm-mcp-cli[/bold] [dim]to update.[/dim]"
-        )
 
 
 def is_tool_on_system(

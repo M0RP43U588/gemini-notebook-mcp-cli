@@ -1,6 +1,7 @@
 """CLI integration tests for auth storage commands: status, set, resolve, relocate, and doctor."""
 
 import json
+import shutil
 
 import pytest
 from typer.testing import CliRunner
@@ -24,6 +25,16 @@ def setup_isolated_env(tmp_path, monkeypatch, fake_credential_store):
     reset_config()
     yield
     reset_config()
+
+
+@pytest.fixture
+def no_real_claude(monkeypatch):
+    """Keep `nlm doctor` from running the real `claude mcp list` found on PATH."""
+    real_which = shutil.which
+    monkeypatch.setattr(
+        "notebooklm_tools.cli.commands.doctor.shutil.which",
+        lambda cmd, *args, **kwargs: None if cmd == "claude" else real_which(cmd, *args, **kwargs),
+    )
 
 
 def test_cli_storage_status_normal_and_json(tmp_path):
@@ -162,7 +173,7 @@ def test_cli_storage_relocate(tmp_path):
     assert "Installation ID:" in res.output
 
 
-def test_cli_doctor_reports_storage_mode_and_conflict(tmp_path):
+def test_cli_doctor_reports_storage_mode_and_conflict(tmp_path, no_real_claude):
     """nlm doctor includes storage mode and flags conflicts."""
     auth = AuthManager("default")
     auth.save_profile(cookies={"SID": "doc_sid"}, email="doc@example.com")
@@ -234,7 +245,7 @@ def test_cli_storage_resolve_clear_marker(tmp_path):
     assert "Operation marker cleared" in res_ok.output
 
 
-def test_cli_doctor_lists_plain_and_protected_profiles(tmp_path):
+def test_cli_doctor_lists_plain_and_protected_profiles(tmp_path, no_real_claude):
     """nlm doctor lists every profile as plain or protected, plus the protect command."""
     AuthManager("work").save_profile(cookies={"SID": "w"}, email="w@example.com")
     AuthManager("personal").save_profile(cookies={"SID": "p"}, email="p@example.com")

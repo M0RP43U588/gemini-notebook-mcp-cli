@@ -16,7 +16,6 @@ def test_cli_main_renders_transient_backend_error_without_traceback(monkeypatch,
         )
 
     monkeypatch.setattr(main, "app", raise_transient_error)
-    monkeypatch.setattr("notebooklm_tools.cli.utils.print_update_notification", lambda: None)
 
     with pytest.raises(SystemExit) as exc_info:
         main.cli_main()

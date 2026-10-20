@@ -1213,9 +1213,6 @@ Get Gemini Notebook MCP server version and check for updates.
 
 **Expected:**
 - `version`: Current version
-- `latest_version`: Latest PyPI version (or null if offline)
-- `update_available`: Boolean
-- `update_command`: Upgrade command
 
 ---
 

@@ -63,10 +63,6 @@ def test_group_with_only_one_registered_tool_is_partial_not_available():
 def test_server_info_marks_provider_capabilities_unprobed():
     with (
         patch(
-            "notebooklm_tools.mcp.tools.server._get_latest_pypi_version",
-            return_value=None,
-        ),
-        patch(
             "notebooklm_tools.mcp.tools.server._check_auth_status",
             return_value="configured",
         ),
