@@ -377,6 +377,7 @@ def _macos_browser_candidates() -> list[tuple[str, str]]:
         ("Vivaldi", "Vivaldi.app/Contents/MacOS/Vivaldi"),
         ("Opera", "Opera.app/Contents/MacOS/Opera"),
         ("Opera GX", "Opera GX.app/Contents/MacOS/Opera GX"),
+        ("Helium", "Helium.app/Contents/MacOS/Helium"),
     ]
     candidates: list[tuple[str, str]] = []
     for name, rel in entries:
@@ -453,6 +454,7 @@ _BROWSER_CONFIG_MAP: dict[str, list[str]] = {
     "chromium": ["Chromium"],
     "vivaldi": ["Vivaldi"],
     "opera": ["Opera", "Opera GX"],
+    "helium": ["Helium"],
 }
 
 
@@ -485,7 +487,7 @@ def _get_chromium_path(preferred: str | None = None) -> str | None:
       falls back to the full priority list if not found.
 
     Set via ``nlm config set auth.browser <name>`` or ``NLM_BROWSER`` env var.
-    Valid names: auto, chrome, arc, brave, dia, comet, edge, edge-beta, chromium, vivaldi, opera.
+    Valid names: auto, chrome, arc, brave, dia, comet, edge, edge-beta, chromium, vivaldi, opera, helium.
     """
     global _detected_browser_name
     if preferred is None:

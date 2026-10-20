@@ -529,3 +529,45 @@ def test_firefox_headless_auth_raises_when_cookies_invalid_in_diagnostic_mode(mo
     assert firefox.run_headless_auth(profile_name="work") is None
     with pytest.raises(AuthenticationError, match="required NotebookLM cookies"):
         firefox.run_headless_auth(profile_name="work", raise_on_error=True)
+
+
+def test_helium_is_a_supported_explicit_auth_browser():
+    from notebooklm_tools.utils.auth_browser import CHROMIUM_BROWSER_KEYS
+
+    assert "helium" in CHROMIUM_BROWSER_KEYS
+
+
+def test_macos_candidates_include_helium_in_both_app_dirs(monkeypatch, tmp_path):
+    from notebooklm_tools.utils import cdp
+
+    monkeypatch.setattr(cdp, "get_home_dir", lambda: tmp_path)
+    helium = [path for name, path in cdp._macos_browser_candidates() if name == "Helium"]
+
+    assert helium == [
+        "/Applications/Helium.app/Contents/MacOS/Helium",
+        str(tmp_path / "Applications" / "Helium.app/Contents/MacOS/Helium"),
+    ]
+
+
+def test_get_chromium_path_selects_helium_on_macos(tmp_path, monkeypatch):
+    from notebooklm_tools.utils import cdp
+
+    helium = tmp_path / "Helium"
+    helium.write_bytes(b"")
+    monkeypatch.setattr(cdp.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(
+        cdp,
+        "_macos_browser_candidates",
+        lambda: [
+            ("Google Chrome", str(tmp_path / "missing-chrome")),
+            ("Helium", str(helium)),
+        ],
+    )
+    monkeypatch.setattr(cdp, "_detected_browser_name", None)
+    monkeypatch.setattr(cdp, "_get_preferred_browser_path", lambda: "")
+
+    assert cdp._get_chromium_path("helium") == str(helium)
+    assert cdp.get_browser_display_name() == "Helium"
+
+    monkeypatch.setattr(cdp, "_detected_browser_name", None)
+    assert cdp._get_chromium_path("auto") == str(helium)

@@ -19,6 +19,7 @@ CHROMIUM_BROWSER_KEYS = {
     "chromium",
     "vivaldi",
     "opera",
+    "helium",
 }
 FIREFOX_BROWSER_KEY = "firefox"
 

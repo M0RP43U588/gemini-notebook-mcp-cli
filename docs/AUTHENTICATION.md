@@ -98,7 +98,7 @@ nlm config set auth.browser brave
 # Or use an environment variable
 export NLM_BROWSER=arc
 
-# Valid values: auto, chrome, arc, brave, edge, edge-beta, chromium, firefox, vivaldi, opera
+# Valid values: auto, chrome, arc, brave, edge, edge-beta, chromium, firefox, vivaldi, opera, helium
 # If the preferred browser is not installed, falls back to auto-detection.
 ```
 
