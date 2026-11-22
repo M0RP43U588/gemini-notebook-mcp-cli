@@ -176,7 +176,6 @@ don't read local skill folders.
 | `notebook_query` | Ask questions (AI answers!) |
 | `chat_list` | List chat sessions for a notebook |
 | `chat_delete` | Permanently delete chat history (REQUIRES confirmation) |
-| `source_search` | Experimental, off-by-default source passage retrieval |
 | `chat_get` | Get full transcript of a chat session (defaults to latest) |
 | `chat_export` | Export a chat transcript to Markdown or JSON |
 | `chat_save_to_note` | Save a chat (or one turn) as a Note |

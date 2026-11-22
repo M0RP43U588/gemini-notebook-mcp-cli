@@ -103,7 +103,6 @@ def _register_tools() -> None:
         downloads,
         exports,
         labels,
-        native_source_search,
         notebooks,
         notes,
         pipeline,

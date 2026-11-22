@@ -2212,9 +2212,6 @@ quota" or as a free-tier account. Run `nlm auth refresh` and retry.
 **Implementation:** `core/usage.py` (`UsageMixin`), `services/usage.py`,
 `nlm usage`, MCP tool `usage_get`.
 
-### Experimental native source retrieval (ASU5Oe)
-See [verified request and response structure](native-source-search-experimental.md#verified-request-structure). Read-only and disabled by default.
-
 ### Delete notebook chat history (J7Gthc)
 
 Captured from the web UI on 2026-11-04. Notebook ID belongs in source-path;

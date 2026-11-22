@@ -103,5 +103,4 @@ Or view inline: `nlm --ai`
 
 ### New in 0.16.0
 
-- Experimental MCP source_search retrieves bounded, source-attributed passages. Off by default; enable NOTEBOOKLM_ENABLE_NATIVE_SOURCE_SEARCH=1. Supports notebook aliases and native source UUID filters. No CLI equivalent.
 - chat_delete / nlm chats delete permanently clears notebook chat turns after explicit confirmation. The persistent conversation ID can remain. Use the active authenticated MCP client and never replay uncertain deletion requests.

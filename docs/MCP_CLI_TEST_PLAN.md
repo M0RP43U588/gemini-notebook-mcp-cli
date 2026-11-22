@@ -1413,5 +1413,3 @@ terminal (not an agent's shell — it refuses non-interactive sessions).
 
 ### Chat deletion
 Verify refusal without confirmation, cancellation in the CLI, and successful deletion on a disposable notebook. Confirm MCP deletion uses its active authenticated client, cached turns are cleared, and a missing acknowledgement produces an error.
-### Experimental source_search
-With the feature disabled, verify a disabled error. Enable it, search using a notebook alias, and verify bounded passages and source attribution. Check that a foreign source filter is rejected and debug logs contain no query or excerpt.

@@ -560,4 +560,3 @@ gemini mcp add --scope user gemini-notebook-mcp notebooklm-mcp
 
 </details>
 
-Experimental passage retrieval: see [Native source search](native-source-search-experimental.md). The source_search tool is disabled by default.
