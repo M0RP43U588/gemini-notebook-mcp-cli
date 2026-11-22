@@ -27,6 +27,12 @@ uv pip install --dry-run --python "$T/dry" . -c "$T/c.txt" --build-constraints b
 uv tool install . --force -c "$T/c.txt" --build-constraints build-constraints.txt $h
 # only main stays
 git push -q origin --delete "$branch" || true
+# standing rule: only main stays on origin (other branches are reported if they hold unmerged commits)
+git fetch -q --prune origin
+for r in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin | grep -vE '^origin/(main|HEAD)$'); do
+  git merge-base --is-ancestor "$r" main || { echo "finalize: keeping $r (unmerged commits)"; continue; }
+  git push -q origin --delete "${r#origin/}"
+done
 git branch -D "$branch" 2>/dev/null || true
 git tag -d "$tag" >/dev/null
 echo "finalize: main is at $(git rev-parse --short HEAD), $tag installed"
