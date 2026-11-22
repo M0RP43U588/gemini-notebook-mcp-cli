@@ -18,7 +18,8 @@ read -r draft pre <<<"$(gh release view "$tag" -R "$UP" --json isDraft,isPrerele
 [ "$(gh api "repos/$UP/commits/$tag" -q .sha)" = "$(git rev-parse "$tag^{commit}")" ] || { echo "finalize: tag SHA mismatch"; exit 1; }
 git switch -q main && git merge --ff-only -q origin/main
 git merge-base --is-ancestor "$tag" "origin/$branch" || { echo "finalize: branch lacks $tag"; exit 1; }
-git merge-base --is-ancestor main "origin/$branch" || { echo "finalize: branch is not based on main"; exit 1; }
+git merge-base --is-ancestor origin/main "origin/$branch" || { echo "finalize: branch is not based on origin/main"; exit 1; }
+git merge-base --is-ancestor main "origin/$branch" || { echo "finalize: local main has commits that are not on the branch:"; git log --oneline "origin/$branch..main"; exit 1; }
 git switch -q --detach "origin/$branch"
 bash fork/verify.sh
 git switch -q main && git merge --ff-only -q "origin/$branch" && git push -q origin main
