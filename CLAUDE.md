@@ -33,15 +33,13 @@ Goals: minimize supply-chain risk, keep Google session cookies safe, keep the to
 - No git/URL/path sources and no new indexes.
 
 ### Upstream sync
-1. `git fetch upstream`, then `git log --oneline HEAD..upstream/main` and `git diff HEAD...upstream/main`.
-2. Review and report in particular:
-   - `pyproject.toml` / `uv.lock`: new or changed deps, sources, build backend
-   - auth/cookie/credential code: `core/auth*.py`, `core/cookie_rotation.py`, `core/credential_*.py`,
-     `services/auth*.py`, `utils/cdp.py`, `utils/browser.py`, `utils/auth_browser.py`
-   - network endpoints: any new URL/host literal, `httpx`/`urllib`/`websocket` call or bind address
-     (current allow-list: see "Network endpoints" below)
-   - `.github/`, `scripts/`, `desktop-extension/`, `setup*.py`, and anything that writes to client configs
-3. Merge **only after explicit approval**. Never push to `upstream`.
+Runbook: `fork/BUMP.md` (cloud preparation pushes `claude/bump-gemini-notebook-<tag>`, `fork/finalize-bump.sh` on the Mac
+moves `main`). Review in particular: `pyproject.toml`/`uv.lock`, auth/cookie/credential code (`core/auth*.py`,
+`core/cookie_rotation.py`, `core/credential_*.py`, `services/auth*.py`, `utils/cdp.py`, `utils/browser.py`,
+`utils/auth_browser.py`), new URL/host literals or bind addresses, `.github/`, `scripts/`, `desktop-extension/`,
+`setup*.py`, anything that writes client configs, new MCP tools. Merge only after Delta's keep/nuke answers.
+Never push to `upstream`. Commits: `bump(gemini-notebook): <tag>` for the merge, `fork(gemini-notebook): <summary>`
+otherwise, no attribution trailers. After a successful finalize only `main` remains.
 
 ### Auth & secrets
 - Protected storage only: `nlm login --storage protected` (AES-GCM file, key in macOS Keychain).
@@ -84,7 +82,7 @@ no authentication.
 ```bash
 export UV_PROJECT_ENVIRONMENT="$TMPDIR/nlm-venv"     # isolated venv, outside the repo
 uv sync --frozen --no-install-project --no-build    # deps + dev tools from uv.lock (hash-verified)
-uv build --wheel -o "$TMPDIR/nlm-dist" --build-constraints build-constraints.txt --require-build-hashes
+uv build --wheel -o "$TMPDIR/nlm-dist" --build-constraints build-constraints.txt --require-hashes
 uv pip install --python "$UV_PROJECT_ENVIRONMENT" --no-deps "$TMPDIR"/nlm-dist/*.whl
 PYTHONPATH=src "$UV_PROJECT_ENVIRONMENT/bin/python" -m pytest -q   # wizard e2e: -m wizard_e2e (opt-in)
 "$UV_PROJECT_ENVIRONMENT/bin/ruff" check . && "$UV_PROJECT_ENVIRONMENT/bin/ruff" format --check .

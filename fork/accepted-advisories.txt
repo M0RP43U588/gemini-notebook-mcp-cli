@@ -1,0 +1,2 @@
+# GHSA ids that fork/verify.sh tolerates in `uv audit --frozen --no-dev`. One per line, with a reason.
+# Empty means the audit must be clean.
