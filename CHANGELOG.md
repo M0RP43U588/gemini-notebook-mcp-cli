@@ -7,6 +7,147 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.6] - 2026-11-21
+
+### Changed
+
+- The `nlm setup` wizard now lists regular Claude Desktop and Relay AI / 3P Claude Desktop as two separate rows, each with its own connected status, instead of one "Claude Desktop" row that asked which profile afterwards. The Claude Code row is now labelled "Claude Code (CLI, terminal)" so it is not mistaken for Desktop's Code tab, which does not read `~/.claude.json` under Relay.
+- When the selected Claude Desktop instance is still running, the wizard now asks you to quit it and continue (or skip that tool) instead of aborting the connection. The write only happens once that instance has quit.
+
+### Fixed
+
+- Setup no longer writes the Relay AI / 3P Claude Desktop config while a Relay session is open. Relay launches the same Claude.app binary, so with no Code session open nothing in the process list said "3P" and the running check missed it; Claude then overwrote the new entry on exit. The check now also reads Relay's `deploymentMode` marker. The wizard also prints a next-step line after connecting Claude Desktop (restart, and launch Relay with `relay-ai claude-app`).
+- `check_firewall_rule()` in the WSL helpers now returns a real `bool`. It used to return the PowerShell output string when the rule existed. Callers only checked truthiness, so behaviour is unchanged, but the return value now matches its `-> bool` annotation, with regression tests ([#410](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/410)).
+
+### Credits
+
+Thanks to **@insane66613** for the narrowly scoped WSL return-type fix and regression tests in [#410](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/410).
+
+## [0.16.5] - 2026-11-14
+
+### Fixed
+
+- `nlm login --file` now prefers the `.google.com` value when a cookie name appears on several Google domains in a Netscape or JSON export, instead of keeping the last entry (often `.youtube.com`). This matches the domain preference already used for browser-exported cookies ([#408](https://github.com/jacob-bd/gemini-notebook-mcp-cli/issues/408), [#409](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/409)).
+
+### Credits
+
+Thanks to **@goranai** for the precise reproduction and the fix with regression tests in [#409](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/409).
+
+## [0.16.4] - 2026-11-13
+
+### Changed
+
+- `cli/` and `mcp/` now import shared primitives (error types, aliases, credential storage, notices, cookie parsing, and the API client class) through the service layer. A new test fails on any direct `core/` import, so the documented layering rule stays enforced ([#405](https://github.com/jacob-bd/gemini-notebook-mcp-cli/issues/405)).
+
+### Fixed
+
+- `nlm login` no longer crashes with a bare `AssertionError` at the plain-or-protected storage question on Typer 0.29 and newer. On Typer 0.26 to 0.28 an answer other than 1 or 2 now asks again instead of aborting ([#406](https://github.com/jacob-bd/gemini-notebook-mcp-cli/issues/406), [#407](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/407)).
+
+### Credits
+
+Thanks to **@renepf** for the login prompt fix and regression tests in [#407](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/407), and to **@Zir0-93** for the layering audit behind [#405](https://github.com/jacob-bd/gemini-notebook-mcp-cli/issues/405).
+
+## [0.16.3] - 2026-11-11
+
+### Fixed
+
+- Manual login reads cookies from DevTools "Copy as cURL" exports that pass them with `-b`/`--cookie`, including multiline inputs. Previously the whole command became one cookie string, so login failed later with a protocol error. Unrecognized input now fails with a message naming the accepted formats ([#403](https://github.com/jacob-bd/gemini-notebook-mcp-cli/issues/403), [#404](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/404)).
+
+### Credits
+
+Thanks to **@elijahmuraoka** for the precise reproduction and workaround in [#403](https://github.com/jacob-bd/gemini-notebook-mcp-cli/issues/403).
+
+
+## [0.16.2] - 2026-11-08
+
+### Fixed
+
+- Treat empty and whitespace-only MCP client config files as empty objects, so setup can initialize them. Malformed JSON and TOML configs remain untouched. `nlm setup list` now marks an unreadable client config with `?` and continues listing the remaining clients. `nlm setup add` and `nlm setup remove` report the affected path with repair instructions instead of ending in a traceback ([#399](https://github.com/jacob-bd/gemini-notebook-mcp-cli/issues/399), [#400](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/400)).
+- Send the current 9-slot consumer `GenerateFreeFormStreamed` request from the web client for notebook chat, while preserving the Enterprise 3-slot request. Live checks covered fresh conversations, follow-ups, selected sources, and citations across three notebooks; failure handling matched the previous release. Existing five-slot requests also continued to work during verification, so this is a compatibility update rather than a confirmed resolution of a reported production failure ([#398](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/398)).
+
+### Credits
+
+Thanks to **@pengqun** for the setup error-handling fix in [#400](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/400) and the detailed report in [#399](https://github.com/jacob-bd/gemini-notebook-mcp-cli/issues/399), and to **@saariuslystoned** for the chat request compatibility update in [#398](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/398).
+
+## [0.16.1] - 2026-11-06
+
+### Fixed
+
+- Report missing or malformed notebook source responses as lookup failures instead of treating them as empty notebooks. Studio source discovery now preserves lookup errors, including timeouts, rather than replacing them with a misleading “No sources found” message. Regression tests keep notes at response field 17 separate from sources. These diagnostic improvements do not establish that the reported issue is resolved ([#397](https://github.com/jacob-bd/gemini-notebook-mcp-cli/issues/397)).
+- Distinguish unknown Google Drive freshness from confirmed stale sources in CLI listing and sync. Report sources skipped during sync instead of implying they were synchronized ([#396](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/396)).
+
+### Credits
+
+Thanks to **@insane66613** for the Drive freshness fix in [#396](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/396), and **@akperkins** for the detailed source-discovery report in [#397](https://github.com/jacob-bd/gemini-notebook-mcp-cli/issues/397).
+
+## [0.16.0] - 2026-11-04
+
+### Added
+
+- Experimental MCP source passage search, disabled by default. Returns bounded source-attributed excerpts, supports notebook aliases and source filters, and avoids logging queries and passages ([#391](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/391)).
+- Confirmed chat-history deletion through CLI and MCP, using the active MCP connection and clearing its cached conversation ([#392](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/392)). Live testing corrected the deletion payload to match the current web UI.
+
+### Fixed
+
+- Prevent ambiguous-response replay for mutating and unknown RPC requests, including the mixed-use mind-map RPC; preserve safe retries for usage and enterprise listing ([#387](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/387)).
+- Use unique temporary collection names and report unconfirmed cleanup instead of hiding it ([#388](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/388)).
+- Reject ambiguous notebook titles and invalid concurrency, and deduplicate repeated batch targets ([#389](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/389)).
+- Stop authenticated HTML dumps and raw core RPC payload diagnostics ([#390](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/390)). Legacy files are not automatically removed.
+
+### Changed
+
+- Update setup-uv from 10.3.2 to 10.3.3 across CI and release workflows ([#385](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/385)).
+- Document all 55 MCP tools, search activation and limits, deletion semantics, and live release verification.
+
+### Credits
+
+Thanks to **@insane66613** for [#387](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/387), [#388](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/388), [#389](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/389), [#390](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/390), and [#391](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/391), and **@pluginmd** for [#392](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/392).
+
+## [0.15.9] - 2026-11-02
+
+### Fixed
+
+- Cross-notebook queries now preserve each notebook’s citations, cited passages when available, and conversation ID, making answers easier to trace back to their sources ([PR #384](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/384)).
+
+### Changed
+
+- Updated the pinned `astral-sh/setup-uv` GitHub Action from 10.3.0 to 10.3.2 across CI and release workflows, including upstream cache warning fixes and updated uv checksums ([PR #383](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/383)).
+- Updated the pinned `pypa/gh-action-pypi-publish` GitHub Action from 1.14.2 to 1.14.3 for upstream certificate security fixes and runtime dependency hash checking ([PR #382](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/382)).
+
+### Credits
+
+Thanks to **@sushmitxo** for the cross-notebook citation fix in [#384](https://github.com/jacob-bd/gemini-notebook-mcp-cli/pull/384).
+
+## [0.15.8] - 2026-10-25
+
+### Fixed
+
+- Accept negative Google session IDs in the browser-backed CDP transport and the `f.sid` page fallback, preserving the leading minus sign ([#379](https://github.com/jacob-bd/gemini-notebook-mcp-cli/issues/379)).
+- Detect Google's signed-out landing page even when Google returns HTTP 200, and report expired authentication before attempting CSRF extraction or writing a misleading page-structure debug dump ([#380](https://github.com/jacob-bd/gemini-notebook-mcp-cli/issues/380)).
+- Reject file-mode writes copied from a stale root `auth.json` mirror when the canonical default profile contains different cookies. Check under the profile lock, including `force=True` writes, while allowing new login credentials to update both stores ([#381](https://github.com/jacob-bd/gemini-notebook-mcp-cli/issues/381)).
+
+### Changed
+
+- Added authentication regression tests and documented live verification with isolated credential storage. Live checks confirmed repeated notebook listing through HTTP and CDP, authenticated homepage refresh, signed-out error reporting, and preservation of working credentials after a rejected stale-mirror write. Negative session IDs were verified with regression fixtures because the live session supplied a positive ID.
+
+### Credits
+
+Thanks to **@alexchaifu-ship-it** for reporting the negative session ID bug in [#379](https://github.com/jacob-bd/gemini-notebook-mcp-cli/issues/379), and **@bradmarshall987** for the detailed authentication reports and reproductions in [#380](https://github.com/jacob-bd/gemini-notebook-mcp-cli/issues/380) and [#381](https://github.com/jacob-bd/gemini-notebook-mcp-cli/issues/381).
+
+## [0.15.7] - 2026-10-23
+
+### Fixed
+
+- **`nlm setup add claude-desktop` now writes to the right file on migrated Windows Store installs.** Newer Microsoft Store builds of Claude Desktop move their user data from `%LOCALAPPDATA%\Packages\<package>\LocalCache\Roaming\Claude` to `%LOCALAPPDATA%\Claude-Data\<package>`. We only knew the old path, so `setup add` wrote a config the app never read, and `setup list` read the same file back and showed a false ✓. The resolver now follows the app's own rule: it uses the new folder only when `Claude-Data\<package name, lowercased>` exists as a directory and no `.user-data-back.<package>` marker sits in the old folder. An empty `Claude-Data` folder next to a live old folder keeps the old path, so working installs don't change. `setup list` goes through the same resolver, so it reports the file Claude Desktop actually loads ([#378](https://github.com/jacob-bd/gemini-notebook-mcp-cli/issues/378)).
+
+### Notes
+
+- Unverified: when the new folder exists with neither a `left` nor a `back` marker, Claude Desktop runs an extra check we haven't read. We treat that case as migrated.
+
+### Credits
+
+Thanks to **@diogoflorencio** for the report and the manual workaround in [#378](https://github.com/jacob-bd/gemini-notebook-mcp-cli/issues/378).
+
 ## [0.15.6] - 2026-10-17
 
 ### Fixed

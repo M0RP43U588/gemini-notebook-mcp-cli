@@ -126,7 +126,7 @@ def _default_server_command() -> str:
 
 
 def _read_json_config(path: Path) -> dict:
-    """Read a JSON config file, returning empty dict if missing.
+    """Read a JSON config file, returning empty dict if missing or blank.
 
     Raises:
         ConfigParseError: If the file exists but is malformed JSON or not an object.
@@ -455,11 +455,43 @@ def _claude_desktop_msix_package_dir() -> Path | None:
     return package_dirs[0]
 
 
+_MSIX_PACKAGE_FAMILY_NAME = re.compile(r"^[a-z0-9.-]+_[a-z0-9]+$")
+
+
+def _claude_desktop_msix_migrated_dir(package_dir: Path) -> Path | None:
+    """Return the folder Claude Desktop moved its user data to, if any.
+
+    Newer MSIX builds move user data from the package container to
+    ``%LOCALAPPDATA%\\Claude-Data\\<package family name>`` and record the move
+    with ``.user-data-<state>.<package family name>`` markers in the old
+    package folder. A ``back`` marker means the data returned, so the old
+    folder wins even when the new one exists.
+
+    Unverified: when the new folder exists with neither a ``back`` nor a
+    ``left`` marker, the app runs an extra check we have not read. We treat
+    that case as migrated.
+    """
+    family_name = package_dir.name.lower()
+    if not _MSIX_PACKAGE_FAMILY_NAME.match(family_name):
+        return None
+
+    legacy_dir = package_dir / "LocalCache" / "Roaming" / "Claude"
+    if (legacy_dir / f".user-data-back.{family_name}").exists():
+        return None
+
+    # package_dir was located as <LOCALAPPDATA>/Packages/<family name>.
+    migrated_dir = package_dir.parent.parent / "Claude-Data" / family_name
+    return migrated_dir if migrated_dir.is_dir() else None
+
+
 def _claude_desktop_msix_config_path() -> Path | None:
     """Find the config path used by a Claude Desktop MSIX installation."""
     package_dir = _claude_desktop_msix_package_dir()
     if package_dir is None:
         return None
+    migrated_dir = _claude_desktop_msix_migrated_dir(package_dir)
+    if migrated_dir is not None:
+        return migrated_dir / "claude_desktop_config.json"
     return package_dir / "LocalCache" / "Roaming" / "Claude" / "claude_desktop_config.json"
 
 
@@ -653,7 +685,23 @@ def _claude_desktop_profile_is_running(
         return False
 
     running_3p = any("claude-3p" in line or "claude_3p" in line for line in claude_lines)
+    # Relay launches the same Claude.app binary, so its main process carries no
+    # "Claude-3p" marker. Relay marks the session by setting deploymentMode to "3p"
+    # in the 3P config for as long as it runs; only consult it for a live snapshot.
+    if not running_3p and process_list is None:
+        running_3p = _claude_desktop_3p_session_active()
     return running_3p if profile == CLAUDE_DESKTOP_PROFILE_3P else not running_3p
+
+
+def _claude_desktop_3p_session_active() -> bool:
+    """Return whether the 3P Claude Desktop config is currently in 3P deployment mode."""
+    path = _claude_desktop_candidate_paths().get(CLAUDE_DESKTOP_PROFILE_3P)
+    if path is None:
+        return False
+    try:
+        return _read_json_config(path).get("deploymentMode") == "3p"
+    except (OSError, ConfigParseError):
+        return False
 
 
 def _ensure_claude_desktop_profiles_stopped(selected: dict[str, Path]) -> bool:
@@ -1806,7 +1854,13 @@ def setup_add(
         if profile is not None:
             console.print("[red]Error:[/red] --profile is only valid for claude-desktop")
             raise typer.Exit(1)
-        _setup_all()
+        try:
+            _setup_all()
+        except ConfigParseError as exc:
+            console.print(
+                f"[red]Error:[/red] Cannot parse {exc.path}; fix or remove it before adding MCP."
+            )
+            raise typer.Exit(1) from exc
         return
 
     if client not in CLIENT_REGISTRY:
@@ -1850,10 +1904,16 @@ def setup_add(
         "opencode": _setup_opencode,
     }
 
-    if client == "claude-desktop":
-        success = _setup_claude_desktop(profile=profile)
-    else:
-        success = setup_fn[client]()
+    try:
+        if client == "claude-desktop":
+            success = _setup_claude_desktop(profile=profile)
+        else:
+            success = setup_fn[client]()
+    except ConfigParseError as exc:
+        console.print(
+            f"[red]Error:[/red] Cannot parse {exc.path}; fix or remove it before adding MCP."
+        )
+        raise typer.Exit(1) from exc
     if success:
         console.print(f"\n[dim]Restart {info['name']} to activate the MCP server.[/dim]")
 
@@ -1891,7 +1951,13 @@ def setup_remove(
         if profile is not None:
             console.print("[red]Error:[/red] --profile is only valid for claude-desktop")
             raise typer.Exit(1)
-        _remove_all()
+        try:
+            _remove_all()
+        except ConfigParseError as exc:
+            console.print(
+                f"[red]Error:[/red] Cannot parse {exc.path}; fix or remove it before removing MCP."
+            )
+            raise typer.Exit(1) from exc
         return
 
     if client not in CLIENT_REGISTRY:
@@ -1912,7 +1978,13 @@ def setup_remove(
         console.print("[red]Error:[/red] Invalid scope. Choose 'user' or 'project'.")
         raise typer.Exit(1)
 
-    _remove_single(client, profile=profile, scope=scope or "project")
+    try:
+        _remove_single(client, profile=profile, scope=scope or "project")
+    except ConfigParseError as exc:
+        console.print(
+            f"[red]Error:[/red] Cannot parse {exc.path}; fix or remove it before removing MCP."
+        )
+        raise typer.Exit(1) from exc
 
 
 def _remove_single(client: str, profile: str | None = None, scope: str = "project") -> bool:
@@ -2189,8 +2261,11 @@ def setup_list() -> None:
                 if path is None:
                     continue
                 profile_status = "[dim]-[/dim]"
-                if _is_configured(_read_json_config(path)):
-                    profile_status = "[green]✓[/green]"
+                try:
+                    if _is_configured(_read_json_config(path)):
+                        profile_status = "[green]✓[/green]"
+                except (OSError, ConfigParseError):
+                    profile_status = "[dim]?[/dim]"
                 display_path = str(path).replace(str(Path.home()), "~")
                 table.add_row(
                     f"{info['name']} ({profile_labels[profile_name]})",
@@ -2202,9 +2277,12 @@ def setup_list() -> None:
 
         elif client_id == "gemini":
             path = _gemini_config_path()
-            config = _read_json_config(path)
-            if _is_configured(config):
-                status = "[green]✓[/green]"
+            try:
+                config = _read_json_config(path)
+                if _is_configured(config):
+                    status = "[green]✓[/green]"
+            except (OSError, ConfigParseError):
+                status = "[dim]?[/dim]"
             config_path = str(path).replace(str(Path.home()), "~")
 
         elif client_id == "github-copilot":
@@ -2239,47 +2317,64 @@ def setup_list() -> None:
 
         elif client_id == "cursor":
             path = _cursor_config_path()
-            config = _read_json_config(path)
-            if _is_configured(config):
-                status = "[green]✓[/green]"
+            try:
+                config = _read_json_config(path)
+                if _is_configured(config):
+                    status = "[green]✓[/green]"
+            except (OSError, ConfigParseError):
+                status = "[dim]?[/dim]"
             config_path = str(path).replace(str(Path.home()), "~")
 
         elif client_id == "windsurf":
             path = _windsurf_config_path()
-            config = _read_json_config(path)
-            if _is_configured(config):
-                status = "[green]✓[/green]"
+            try:
+                config = _read_json_config(path)
+                if _is_configured(config):
+                    status = "[green]✓[/green]"
+            except (OSError, ConfigParseError):
+                status = "[dim]?[/dim]"
             config_path = str(path).replace(str(Path.home()), "~")
 
         elif client_id == "cline":
             path = _cline_config_path()
-            config = _read_json_config(path)
-            if _is_configured(config):
-                status = "[green]✓[/green]"
+            try:
+                config = _read_json_config(path)
+                if _is_configured(config):
+                    status = "[green]✓[/green]"
+            except (OSError, ConfigParseError):
+                status = "[dim]?[/dim]"
             config_path = str(path).replace(str(Path.home()), "~")
 
         elif client_id == "antigravity":
             path = _antigravity_config_path()
-            config = _read_json_config(path)
-            if _is_configured(config):
-                status = "[green]✓[/green]"
+            try:
+                config = _read_json_config(path)
+                if _is_configured(config):
+                    status = "[green]✓[/green]"
+            except (OSError, ConfigParseError):
+                status = "[dim]?[/dim]"
             config_path = str(path).replace(str(Path.home()), "~")
 
         elif client_id == "codex":
             path = _codex_config_path() / "config.toml"
             try:
-                if _is_already_configured("codex"):
-                    status = "[green]✓[/green]"
-            except (OSError, tomllib.TOMLDecodeError):
+                if path.exists():
+                    config = tomllib.loads(path.read_text(encoding="utf-8"))
+                    if _configured_mcp_names(config.get("mcp_servers", {})):
+                        status = "[green]✓[/green]"
+            except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
                 status = "[dim]?[/dim]"
             config_path = str(path).replace(str(Path.home()), "~")
 
         elif client_id == "opencode":
             path = _opencode_config_path()
-            config = _read_json_config(path)
-            mcp = config.get("mcp", {})
-            if _configured_mcp_names(mcp):
-                status = "[green]✓[/green]"
+            try:
+                config = _read_json_config(path)
+                mcp = config.get("mcp", {})
+                if _configured_mcp_names(mcp):
+                    status = "[green]✓[/green]"
+            except (OSError, ConfigParseError):
+                status = "[dim]?[/dim]"
             config_path = str(path).replace(str(Path.home()), "~")
 
         table.add_row(str(info["name"]), str(info["description"]), status, config_path)

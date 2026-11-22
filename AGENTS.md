@@ -120,6 +120,7 @@ src/notebooklm_tools/
 - `cli/` and `mcp/` are thin wrappers: they handle UX concerns (prompts, spinners, JSON responses) and delegate to `services/`
 - `services/` contains all business logic, validation, and error handling. Returns typed dicts.
 - `cli/` and `mcp/` must NOT import from `core/` directly — always go through `services/`
+- Shared primitives (error types, aliases, credential storage, notices, cookie parsing) are re-exported through `services/` with lazy PEP 562 lookups, following `services/auth.py`. `tests/test_layering.py` enforces the boundary.
 - `services/` raises `ServiceError`/`ValidationError` — never raw exceptions
 
 **Storage Structure (`~/.notebooklm-mcp-cli/`):**
@@ -174,6 +175,8 @@ don't read local skill folders.
 | `source_add` | Add source (url, text, drive, file) |
 | `notebook_query` | Ask questions (AI answers!) |
 | `chat_list` | List chat sessions for a notebook |
+| `chat_delete` | Permanently delete chat history (REQUIRES confirmation) |
+| `source_search` | Experimental, off-by-default source passage retrieval |
 | `chat_get` | Get full transcript of a chat session (defaults to latest) |
 | `chat_export` | Export a chat transcript to Markdown or JSON |
 | `chat_save_to_note` | Save a chat (or one turn) as a Note |
@@ -204,6 +207,7 @@ don't read local skill folders.
 | `note_delete` | Delete a note (REQUIRES confirmation) |
 
 **IMPORTANT - Operations Requiring Confirmation:**
+- `chat_delete` requires `confirm=True` - deletion is IRREVERSIBLE
 - `notebook_delete` requires `confirm=True` - deletion is IRREVERSIBLE
 - `source_delete` requires `confirm=True` - deletion is IRREVERSIBLE
 - `source_sync_drive` requires `confirm=True` - always show stale sources first via `source_list_drive`

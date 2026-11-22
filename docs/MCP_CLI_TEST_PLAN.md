@@ -1,11 +1,11 @@
 # Gemini Notebook (formerly Google NotebookLM) MCP - Comprehensive Test Plan
 
-**Purpose:** Verify all **53 MCP tools** work correctly.
+**Purpose:** Verify all **55 MCP tools** work correctly.
 
 **Version:** 2.7 (Updated 2026-09-27 - synchronized current MCP surface)
 
 **Changes from v2.6:**
-- Current tool count: 53 tools — adds `profile`, `alias` and `chat_save_to_note`, plus `pipeline` create and profile info in `server_info` (v0.15.0).
+- Current tool count: 55 tools — adds `chat_delete` with an explicit confirmation gate.
 
 **Historical changes from v2.1:**
 - The test plan previously covered 39 tools, including consolidated notes, labels, async query, batch, pipeline, tags, and server_info.
@@ -53,6 +53,27 @@ Refresh authentication tokens for NotebookLM.
 ```
 
 **Expected:** Success message with auth status.
+
+---
+
+### Authentication regressions (#379, #380, #381)
+
+Run `uv run pytest tests/test_auth_open_issues.py`.
+
+- Both page parsers must preserve the minus sign in `FdrFJe` and `f.sid` session IDs.
+- An HTTP 200 page containing `landing-header-signin` must report expired authentication
+  before attempting token extraction or writing a page-structure debug dump.
+- In isolated file-mode storage, writing tokens from a stale root `auth.json` mirror
+  must raise `StaleRevisionError` and preserve the canonical profile. A new login must
+  still update both stores. Never inject stale credentials into a real user profile.
+
+Live verification: list notebooks twice through HTTP and CDP, and verify an anonymous
+homepage request reports expired authentication. For the stale-mirror check, use a
+private temporary storage directory containing a copy of working credentials; reject
+an injected synthetic stale mirror, then verify the preserved credentials can still
+list notebooks twice. Run live checks separately from pytest's storage monitor.
+A positive live session ID verifies compatibility only; the negative-ID case requires
+its regression fixture unless Google supplies a negative ID for the current session.
 
 ---
 
@@ -1389,3 +1410,8 @@ terminal (not an agent's shell — it refuses non-interactive sessions).
 39. Delete all sources with confirm=True
 40. Delete notebook [id] with confirm=True
 ```
+
+### Chat deletion
+Verify refusal without confirmation, cancellation in the CLI, and successful deletion on a disposable notebook. Confirm MCP deletion uses its active authenticated client, cached turns are cleared, and a missing acknowledgement produces an error.
+### Experimental source_search
+With the feature disabled, verify a disabled error. Enable it, search using a notebook alias, and verify bounded passages and source attribution. Check that a foreign source filter is rejected and debug logs contain no query or excerpt.

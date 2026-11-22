@@ -454,7 +454,11 @@ nlm source stale <notebook-id> [OPTIONS]
 
 ### nlm source sync
 
-Sync Drive sources with latest content.
+Sync Drive sources with latest content. Without explicit source IDs, only confirmed
+stale sources eligible for automatic sync are selected. The command reports
+sources with unknown freshness and stale sources that cannot sync automatically,
+including when other sources are synced successfully. Explicit source IDs bypass
+the freshness selection.
 
 ```bash
 nlm source sync <notebook-id> [OPTIONS]
@@ -1037,6 +1041,20 @@ nlm chats to-note <notebook-id> <conversation-id> [OPTIONS]
 |--------|-------|-------------|
 | `--turn` | `-t` | 1-indexed turn to save (default: entire chat) |
 | `--title` | | Note title |
+| `--json` | | Output raw JSON |
+
+### nlm chats delete
+
+Permanently delete all server-side chat history for a notebook. The command
+prompts for confirmation unless `--confirm` is supplied.
+
+```bash
+nlm chats delete <notebook-id-or-title> [OPTIONS]
+```
+
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--confirm` | `-y` | Skip the interactive confirmation |
 | `--json` | | Output raw JSON |
 | `--profile` | `-p` | Use specific profile |
 

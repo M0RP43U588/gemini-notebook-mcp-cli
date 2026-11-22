@@ -509,14 +509,18 @@ POST /_/LabsTailwindUi/data/google.internal.labs.tailwind.orchestration.v1.LabsT
 ### Query Request Structure
 ```python
 params = [
-    [  # Source IDs - each in nested array
-        [[["source_id_1"]]],
-        [[["source_id_2"]]],
+    [  # [0] Source IDs - [[[sid]], ...]
+        [["source_id_1"]],
+        [["source_id_2"]],
     ],
-    "Your question here",  # Query text
-    None,
-    [2, None, [1]],  # Config
-    "conversation-uuid"  # For follow-up questions
+    "Your question here",  # [1] Query text
+    None,  # [2] Conversation history (None for new, turn pairs for follow-ups)
+    [2, None, [1], [1, None, None, None, None, None, None, None, None, None, [1, 3]]],  # [3] Client capability descriptor
+    "conversation-uuid",  # [4] Conversation ID
+    None,  # [5] Drafted context (unused)
+    None,  # [6] Tool executions (unused)
+    "notebook-uuid",  # [7] Explicit notebook/project ID
+    1,  # [8] Query mode
 ]
 
 f_req = [None, json.dumps(params)]
@@ -2207,3 +2211,17 @@ quota" or as a free-tier account. Run `nlm auth refresh` and retry.
 
 **Implementation:** `core/usage.py` (`UsageMixin`), `services/usage.py`,
 `nlm usage`, MCP tool `usage_get`.
+
+### Experimental native source retrieval (ASU5Oe)
+See [verified request and response structure](native-source-search-experimental.md#verified-request-structure). Read-only and disabled by default.
+
+### Delete notebook chat history (J7Gthc)
+
+Captured from the web UI on 2026-11-04. Notebook ID belongs in source-path;
+the body uses a consumer request header and conversation ID:
+
+    [[2, null, [1], [1, null, null, null, null, null, null, null, null, null, [1, 3]]], conversation_id, null, 1]
+
+Never replay this mutation after an ambiguous response. Successful deletion
+returns a non-null acknowledgement and clears turns; the persistent conversation
+ID may remain. Verify empty server turns rather than disappearance of the ID.
