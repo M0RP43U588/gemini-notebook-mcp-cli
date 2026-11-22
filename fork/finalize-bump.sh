@@ -36,7 +36,7 @@ uv tool install . --force -c "$T/c.txt" --build-constraints build-constraints.tx
 git push -q origin --delete "$branch" || true
 # standing rule: only main stays on origin (other branches are reported if they hold unmerged commits)
 git fetch -q --prune origin
-for r in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin | grep -vE '^origin/(main|HEAD)$'); do
+for r in $(git for-each-ref --format='%(refname)' refs/remotes/origin | sed 's#^refs/remotes/##' | grep -vE '^origin/(main|HEAD)$'); do
   git merge-base --is-ancestor "$r" main || { echo "finalize: keeping $r (unmerged commits)"; continue; }
   git push -q origin --delete "${r#origin/}"
 done
