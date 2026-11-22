@@ -11,5 +11,5 @@ Fork `gemini-notebook-mcp-cli`, upstream `jacob-bd/gemini-notebook-mcp-cli`. Bra
 6. `bash fork/verify.sh` (lock, audit, wheel, ruff, tests; advisories only if listed in `fork/accepted-advisories.txt`). Push the branch.
 
 ## Mac (Claude Code Remote Control, outside the sandbox, in this checkout)
-`git switch main && bash fork/finalize-bump.sh <tag> [<branch>]`
+`git fetch origin <branch> && git switch --detach FETCH_HEAD && bash fork/finalize-bump.sh <tag> [<branch>]` (the script moves to main itself; once main has it, `git switch main` first works too)
 Checks the release and tag SHA with `gh`, verifies the branch, fast-forwards and pushes main, reinstalls through the lock, then deletes the bump branch and the local tag.

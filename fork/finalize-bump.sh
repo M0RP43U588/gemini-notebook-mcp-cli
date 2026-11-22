@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
-# Mac: bash fork/finalize-bump.sh <tag> [<branch>]  (default branch claude/bump-gemini-notebook-<tag>)
+# Mac: bash fork/finalize-bump.sh <tag> [<branch>]; branch defaults to claude/bump-gemini-notebook-<tag> (first run: see fork/BUMP.md)
 # Verifies the release and the branch, moves main to it, reinstalls through the lock, deletes the bump branch.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# run from a copy: the script switches branches, and on the first run only the bump branch has it
+if [ -z "${FB_REPO:-}" ]; then
+  FB_REPO=$(git rev-parse --show-toplevel) && export FB_REPO && t=$(mktemp) && cp "$0" "$t" && exec bash "$t" "$@"
+fi
+cd "$FB_REPO"
 tag=${1:?usage: finalize-bump.sh <tag> [<branch>]}; branch=${2:-claude/bump-gemini-notebook-$tag}
 UP=jacob-bd/gemini-notebook-mcp-cli
 [ -z "$(git status --porcelain)" ] || { echo "finalize: working tree not clean"; exit 1; }
