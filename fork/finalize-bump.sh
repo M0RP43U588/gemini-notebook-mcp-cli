@@ -8,6 +8,8 @@ if [ -z "${FB_REPO:-}" ]; then
 fi
 cd "$FB_REPO"
 tag=${1:?usage: finalize-bump.sh <tag> [<branch>]}; branch=${2:-claude/bump-gemini-notebook-$tag}
+# supported interpreters only (locked wheels, e.g. pyyaml, lag behind new CPython); never download one
+export UV_PYTHON=">=3.11,<3.15" UV_PYTHON_DOWNLOADS=never
 UP=jacob-bd/gemini-notebook-mcp-cli
 [ -z "$(git status --porcelain)" ] || { echo "finalize: working tree not clean"; exit 1; }
 git fetch -q origin "$branch"

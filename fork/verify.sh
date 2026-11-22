@@ -3,6 +3,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
+# supported interpreters only (locked wheels, e.g. pyyaml, lag behind new CPython); never download one
+export UV_PYTHON=">=3.11,<3.15" UV_PYTHON_DOWNLOADS=never
 export UV_PROJECT_ENVIRONMENT=$W/venv COLUMNS=300
 uv lock --check
 rc=0; uv audit --frozen --no-dev >"$W/audit" 2>&1 || rc=$?
