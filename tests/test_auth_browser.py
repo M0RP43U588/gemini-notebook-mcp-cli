@@ -572,6 +572,7 @@ def test_get_chromium_path_selects_helium_on_macos(tmp_path, monkeypatch):
     monkeypatch.setattr(cdp, "_detected_browser_name", None)
     assert cdp._get_chromium_path("auto") == str(helium)
 
+
 def test_firefox_read_google_cookies_closes_sqlite_connections_and_releases_file(
     tmp_path, monkeypatch
 ):
