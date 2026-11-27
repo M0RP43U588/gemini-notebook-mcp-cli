@@ -1001,7 +1001,7 @@ files that already exist.
 
 **Expected:** One subdirectory per notebook. On a second run with
 `skip_existing`, previously downloaded artifacts are reported as skipped
-("already downloaded") and only new artifacts are fetched. A failure on one
+("already downloaded") and only new artifacts are fetched. If a file appears at the target during a download, the completed transfer is discarded and the existing file remains unchanged. A failure on one
 notebook doesn't stop the sweep; result includes per-notebook counts and
 `errored_notebooks`.
 
@@ -1413,3 +1413,28 @@ terminal (not an agent's shell — it refuses non-interactive sessions).
 
 ### Chat deletion
 Verify refusal without confirmation, cancellation in the CLI, and successful deletion on a disposable notebook. Confirm MCP deletion uses its active authenticated client, cached turns are cleared, and a missing acknowledgement produces an error.
+
+
+## Strict offline test-storage isolation
+
+For development and CI runs that must not access a real NotebookLM login,
+capture the **actual operating-system user home** before changing process
+environment variables. Then set the following:
+
+- NLM_OFFLINE_STRICT=1
+- NLM_OFFLINE_MONITORED_HOME: independently captured, absolute real home
+- NLM_TEST_ISOLATED_ROOT: a **different**, dedicated synthetic directory
+- HOME, USERPROFILE, APPDATA, LOCALAPPDATA, TEMP, TMP, XDG_CONFIG_HOME,
+  XDG_DATA_HOME, XDG_CACHE_HOME, XDG_STATE_HOME, NOTEBOOKLM_MCP_CLI_PATH:
+  directories **inside** that synthetic root
+
+Leave NOTEBOOKLM_E2E and ALLOW_REAL_KEYSTORE **unset** (not the string "0").
+Run pytest with marker selection: not e2e and not wizard_e2e and not real_os_store.
+
+Strict mode refuses a missing/overlapping real-home monitor, any live-test
+markers, or observed changes to the monitored profile directory, including
+normally allowlisted cookie files. The tripwire compares file metadata, not
+credential contents. If an external NotebookLM process rotates cookies while
+the suite runs, the tripwire may fail even when tests are isolated. Investigate
+write ownership; do not disable the guard or attribute changes to tests
+without independent evidence.

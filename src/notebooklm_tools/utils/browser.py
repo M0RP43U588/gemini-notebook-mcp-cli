@@ -73,16 +73,21 @@ def parse_cookies_from_file(file_path: str | Path) -> dict[str, str]:
     if netscape_cookies:
         return netscape_cookies
 
+    # Skip file comments before looking for cURL arguments.
+    content = "\n".join(
+        line for line in content.splitlines() if not line.lstrip().startswith("#")
+    ).strip()
+
     # Try to extract from a cURL command (Cookie header or -b/--cookie value)
-    content = _extract_cookie_argument_from_curl(content)
+    content = _extract_cookie_argument_from_curl(_unescape_windows_curl(content))
 
     # Try to extract Cookie header value
     if content.lower().startswith("cookie:"):
         content = content[7:].strip()
 
-    # Parse cookie string (name=value; name2=value2)
+    # Parse cookie string (name=value; name2=value2), on one or several lines
     cookies: dict[str, str] = {}
-    for part in content.split(";"):
+    for part in re.split(r"[;\r\n]", content):
         part = part.strip()
         if "=" not in part:
             continue
@@ -124,6 +129,32 @@ _CURL_COOKIE_FLAG_BARE_RE = re.compile(r"(?:^|\s)(?:-b|--cookie)(?:\s+|=)(?P<val
 _COOKIE_NAME_RE = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$")
 
 
+_WINDOWS_CURL_COOKIE_RE = re.compile(
+    r'(?:^|\s)(?:(?P<flag>-b|--cookie)\s+|(?:-H|--header)\s+(?=")(?="\s*cookie:))'
+    r'"(?P<value>(?:[^"]|"")*)"',
+    re.IGNORECASE,
+)
+
+
+def _unescape_windows_curl(content: str) -> str:
+    """Return the cookie argument of a Chrome "Copy as cURL (cmd)" export.
+
+    On Windows, DevTools wraps every argument as ``^"..."^``, puts a ``^`` in
+    front of special characters, and writes a literal quote as ``""``. The
+    cookie value is returned after decoding. Other inputs are returned unchanged.
+    """
+    if not re.match(r'^curl\s+\^"', content, flags=re.IGNORECASE):
+        return content
+    text = re.sub(r"\^(.)", r"\1", content, flags=re.DOTALL)
+    match = _WINDOWS_CURL_COOKIE_RE.search(text)
+    if not match:
+        return content
+    value = match.group("value").replace('""', '"').replace("\\\\", "\\")
+    if match.group("flag"):
+        return _validate_curl_cookie_value(value)
+    return re.sub(r"^\s*cookie:\s*", "", value, flags=re.IGNORECASE)
+
+
 def _extract_cookie_argument_from_curl(content: str) -> str:
     """Return the cookie string carried by a cURL export, if there is one.
 
@@ -136,17 +167,21 @@ def _extract_cookie_argument_from_curl(content: str) -> str:
         return header.group("value")
     flag = _CURL_COOKIE_FLAG_RE.search(content) or _CURL_COOKIE_FLAG_BARE_RE.search(content)
     if flag:
-        value = flag.group("value").strip()
-        if "=" not in value.split(";", 1)[0]:
-            raise AuthenticationError(
-                message="Could not parse cookies from cURL input",
-                hint=(
-                    "-b/--cookie points at a cookie file. Paste the Cookie header "
-                    "value instead, or pass the cookie file itself."
-                ),
-            )
-        return value
+        return _validate_curl_cookie_value(flag.group("value"))
     return content
+
+
+def _validate_curl_cookie_value(value: str) -> str:
+    value = value.strip()
+    if "=" not in value.split(";", 1)[0]:
+        raise AuthenticationError(
+            message="Could not parse cookies from cURL input",
+            hint=(
+                "-b/--cookie points at a cookie file. Paste the Cookie header "
+                "value instead, or pass the cookie file itself."
+            ),
+        )
+    return value
 
 
 def _try_parse_netscape_cookies(content: str) -> dict[str, str] | None:
